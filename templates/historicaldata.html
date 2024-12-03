@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Historical Data</h1>
+
+<!-- Filter Form -->
+<form method="POST">
+    <label for="start_time">Start Time:</label>
+    <input type="datetime-local" id="start_time" name="start_time" value="{{ filters['start_time'] if filters['start_time'] else '' }}">
+
+    <label for="end_time">End Time:</label>
+    <input type="datetime-local" id="end_time" name="end_time" value="{{ filters['end_time'] if filters['end_time'] else '' }}">
+
+    <label for="min_temperature">Min Temperature (°C):</label>
+    <input type="text" id="min_temperature" name="min_temperature" value="{{ filters['min_temperature'] if filters['min_temperature'] else '' }}">
+
+    <label for="max_temperature">Max Temperature (°C):</label>
+    <input type="text" id="max_temperature" name="max_temperature" value="{{ filters['max_temperature'] if filters['max_temperature'] else '' }}">
+
+    <label for="min_humidity">Min Humidity (%):</label>
+    <input type="text" id="min_humidity" name="min_humidity" value="{{ filters['min_humidity'] if filters['min_humidity'] else '' }}">
+
+    <label for="max_humidity">Max Humidity (%):</label>
+    <input type="text" id="max_humidity" name="max_humidity" value="{{ filters['max_humidity'] if filters['max_humidity'] else '' }}">
+
+    <button type="submit">Filter</button>
+</form>
+
+<!-- Export Button -->
+<form action="{{ url_for('export_data') }}" method="GET">
+    <button type="submit">Export Filtered Data</button>
+</form>
+
+<!-- Data Table -->
+<table>
+    <thead>
+        <tr>
+            <th>Timestamp</th>
+            <th>Temperature (°C)</th>
+            <th>Humidity (%)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for record in data %}
+            <tr>
+                <td>{{ record.timestamp }}</td>
+                <td>{{ record.temperature }}</td>
+                <td>{{ record.humidity }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% endblock %}

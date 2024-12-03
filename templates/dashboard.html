@@ -1,5 +1,81 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
+
 {% block content %}
-<h2>Dashboard</h2>
-<img src="data:image/png;base64,{{ plot_url }}" alt="Sensor Data Plot">
+<h1>Temperature & Humidity Monitoring</h1>
+
+<div style="display: flex; justify-content: space-around;">
+    <div>
+        <canvas id="tempChart" width="400" height="200"></canvas>
+    </div>
+    <div>
+        <canvas id="humChart" width="400" height="200"></canvas>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    var tempCtx = document.getElementById('tempChart').getContext('2d');
+    var humCtx = document.getElementById('humChart').getContext('2d');
+
+    var tempChart = new Chart(tempCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Temperature (°C)',
+                data: [],
+                borderColor: 'rgba(255, 99, 132, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    var humChart = new Chart(humCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Humidity (%)',
+                data: [],
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    function updateCharts() {
+        fetch('/sensor-data')
+            .then(response => response.json())
+            .then(data => {
+                if (!data.error) {
+                    const now = new Date(data.timestamp).toLocaleTimeString();
+                    tempChart.data.labels.push(now);
+                    tempChart.data.datasets[0].data.push(data.temperature);
+                    humChart.data.labels.push(now);
+                    humChart.data.datasets[0].data.push(data.humidity);
+
+                    tempChart.update();
+                    humChart.update();
+                }
+            });
+    }
+
+    setInterval(updateCharts, 5000);
+</script>
+
 {% endblock %}

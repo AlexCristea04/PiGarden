@@ -13,6 +13,7 @@
             <a href="{{ url_for('index') }}">Home</a>
             {% if 'user' in session %}
                 <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('historicaldata') }}">Historical Data</a> <!-- New link -->
                 <a href="{{ url_for('logout') }}">Logout</a>
             {% else %}
                 <a href="{{ url_for('login') }}">Login</a>
