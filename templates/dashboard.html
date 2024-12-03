@@ -12,6 +12,22 @@
     </div>
 </div>
 
+    <button onclick="controlLED('ON')">Turn LED On</button>
+<button onclick="controlLED('OFF')">Turn LED Off</button>
+
+<script>
+    function controlLED(status) {
+        fetch('/led-control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ led_status: status })
+        })
+        .then(response => response.json())
+        .then(data => alert(data.message || data.error));
+    }
+</script>
+
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>

@@ -115,7 +115,6 @@ def dashboard():
 
 @app.route('/sensor-data', methods=['GET'])
 def sensor_data():
-    """Fetch the latest sensor data for Chart.js."""
     latest_data = SensorData.query.order_by(SensorData.timestamp.desc()).first()
     if latest_data:
         return jsonify({
@@ -224,6 +223,31 @@ def export_data():
     response.mimetype = 'text/csv'
 
     return response
+
+
+@app.route('/led-control', methods=['POST'])
+def led_control():
+    if 'user' not in session:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    data = request.get_json()
+    led_status = data.get('led_status')  # "ON" or "OFF"
+
+    if led_status not in ["ON", "OFF"]:
+        return jsonify({'error': 'Invalid LED status'}), 400
+
+    try:
+        # Control LED state here
+        if led_status == "ON":
+            mqtt_client.publish("led/control", json.dumps({"led_status": "ON"}))
+            print("LED is ON")
+        elif led_status == "OFF":
+            mqtt_client.publish("led/control", json.dumps({"led_status": "OFF"}))
+            print("LED is OFF")
+
+        return jsonify({'message': 'LED control command sent successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 def init_db():
