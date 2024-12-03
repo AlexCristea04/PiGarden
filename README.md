@@ -17,3 +17,6 @@ Data from all sensors is visualized in an intuitive web dashboard, accessible re
 MQTT integration for seamless data transfer and an easy-to-use control panel for configuring thresholds and monitoring sensor activity. 
 This project provides an efficient, robust, and scalable solution for automating plant care, making it ideal for smart gardening 
 enthusiasts and agricultural applications.
+
+Full project documentation can be found here:
+https://docs.google.com/document/d/1jRzlhsofpJJZEJpq2Fw3a0l3rPG2EbD4V2WyJ9xZcK4/edit?usp=sharing 
