@@ -1,0 +1,177 @@
+import adafruit_dht
+import board
+import paho.mqtt.client as mqtt
+import json
+import time
+import os
+import sqlite3
+import RPi.GPIO as GPIO
+
+# Sensor Configuration
+DHT_SENSOR = adafruit_dht.DHT11(board.D4)  # GPIO4 pin
+MQTT_BROKER = "127.0.0.1"
+MQTT_PORT = 1883
+MQTT_TOPIC = "sensor/temperature_humidity"
+LED_PINS = [17, 27, 22, 10]  # Define GPIO pins for LEDs
+DB_PATH = "sensor_data.db"  # Database path
+led_status = "OFF"  # Initial LED status
+
+# SQLite Functions
+def init_db():
+    """Initialize SQLite database."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS SensorData (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        timestamp TEXT,
+                        temperature REAL,
+                        humidity REAL
+                    )''')
+    conn.commit()
+    conn.close()
+
+def save_to_db(data):
+    """Save sensor data to the database."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO SensorData (timestamp, temperature, humidity) VALUES (?, ?, ?)",
+                   (data["timestamp"], data["temperature"], data["humidity"]))
+    conn.commit()
+    conn.close()
+
+def fetch_offline_data():
+    """Retrieve offline data from the database."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM SensorData")
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
+def delete_uploaded_data():
+    """Delete all rows in the database."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM SensorData")
+    conn.commit()
+    conn.close()
+
+# LED Control for multiple LEDs
+def led_on():
+    global led_status
+    for pin in LED_PINS:
+        GPIO.output(pin, GPIO.HIGH)  # Turn on all LEDs
+    led_status = "ON"
+    print("LEDs ON")
+
+def led_off():
+    global led_status
+    for pin in LED_PINS:
+        GPIO.output(pin, GPIO.LOW)  # Turn off all LEDs
+    led_status = "OFF"
+    print("LEDs OFF")
+
+# MQTT Callback to handle LED control
+def on_message(client, userdata, msg):
+    print(f"Received message: {msg.payload.decode()} on topic {msg.topic}")
+    try:
+        payload = json.loads(msg.payload.decode())
+        status = payload.get('led_status')
+        print(f"LED status received: {status}")
+        if status == "ON":
+            led_on()
+        elif status == "OFF":
+            led_off()
+        else:
+            print(f"Invalid LED status received: {status}")
+    except Exception as e:
+        print(f"Error processing LED control message: {e}")
+
+
+# Sensor Reading Function
+def read_sensor():
+    """Reads temperature and humidity from the DHT sensor."""
+    for _ in range(3):
+        try:
+            temperature = DHT_SENSOR.temperature
+            humidity = DHT_SENSOR.humidity
+            if temperature is not None and humidity is not None:
+                return {
+                    "temperature": temperature,
+                    "humidity": humidity,
+                    "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+                }
+        except RuntimeError as e:
+            print(f"Sensor read error: {e}")
+            time.sleep(2)
+    return None
+
+# MQTT Publish Function
+def publish_data(client, data):
+    """Publish data to the MQTT broker."""
+    try:
+        if client.is_connected():
+            client.publish(MQTT_TOPIC, json.dumps(data))
+            print(f"Published: {data}")
+        else:
+            raise ConnectionError("MQTT client is not connected")
+    except Exception as e:
+        print(f"Failed to publish, saving offline: {e}")
+        save_to_db(data)
+
+# Setup LEDs
+def setup_leds():
+    GPIO.setmode(GPIO.BCM)
+    for pin in LED_PINS:
+        GPIO.setup(pin, GPIO.OUT)  # Set each LED pin as output
+
+# Main Function
+def publish_sensor_data():
+    """Publish sensor data, handling offline and online states."""
+    init_db()
+    client = mqtt.Client(protocol=mqtt.MQTTv311)
+    client.on_message = on_message  # Set up the callback for received messages
+
+    setup_leds()  # Initialize LEDs
+
+    try:
+        client.connect(MQTT_BROKER, MQTT_PORT, 60)
+        client.subscribe("led/control")  # Subscribe to LED control topic
+        client.loop_start()
+
+        while True:
+            data = read_sensor()
+            if data:
+                publish_data(client, data)
+
+            # Print LED status every 5 seconds
+            print(f"LED Status: {led_status}")
+
+            # Attempt to upload offline data if the broker is reachable
+            if client.is_connected():
+                offline_data = fetch_offline_data()
+                if offline_data:
+                    for record in offline_data:
+                        id, timestamp, temperature, humidity = record
+                        offline_payload = {
+                            "timestamp": timestamp,
+                            "temperature": temperature,
+                            "humidity": humidity
+                        }
+                        try:
+                            publish_data(client, offline_payload)
+                        except Exception as e:
+                            print(f"Error uploading offline data: {e}")
+                            break
+                    else:
+                        delete_uploaded_data()  # Clear offline data after successful upload
+
+            time.sleep(5)  # Adjust interval as needed
+    except Exception as e:
+        print(f"Error connecting to MQTT broker: {e}")
+    finally:
+        client.loop_stop()
+        client.disconnect()
+
+if __name__ == "__main__":
+    publish_sensor_data()
